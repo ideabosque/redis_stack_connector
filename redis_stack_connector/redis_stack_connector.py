@@ -64,7 +64,7 @@ class RedisStackConnector:
         )
         return res.data[0].embedding
 
-    def inquiry_data(self, **arguments: dict) -> List[list]:
+    def inquiry_data(self, **arguments: dict) -> List[dict]:
         kwargs = {"user_query": arguments["question"], "k": 10}
         if arguments.get("index_name"):
             kwargs["index_name"] = arguments["index_name"]
@@ -89,7 +89,7 @@ class RedisStackConnector:
         hybrid_fields="*",
         k: int = 20,
         log_results: bool = False,
-    ) -> List[list]:
+    ) -> List[dict]:
         try:
             # Creates embedding vector from user query
             embedded_query = self.get_embedding(user_query)
@@ -118,13 +118,7 @@ class RedisStackConnector:
                         f"{i}. {article.sku} {article.name} (Score: {round(score ,3) })"
                     )
 
-            return [
-                [
-                    {"attribute": return_field, "value": doc[return_field]}
-                    for return_field in return_fields
-                ]
-                for doc in result.docs
-            ]
+            return result.docs
 
         except Exception as e:
             log = traceback.format_exc()
