@@ -65,7 +65,7 @@ class RedisStackConnector:
         return res.data[0].embedding
 
     def inquiry_data(self, **arguments: dict) -> List[dict]:
-        kwargs = {"user_query": arguments["question"], "k": 10}
+        kwargs = {"user_query": arguments["user_query"], "k": 10}
         if arguments.get("index_name"):
             kwargs["index_name"] = arguments["index_name"]
         if arguments.get("vector_field"):
