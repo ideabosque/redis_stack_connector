@@ -4,18 +4,18 @@ from __future__ import print_function
 
 __author__ = "bibow"
 
-import redis, traceback
+import logging
+import traceback
+from typing import Any, Dict, List
+
 import numpy as np
+import redis
 from openai import OpenAI
-from logging import Logger
-from typing import List
-from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from redis.commands.search.query import Query
-from redis.commands.search.field import TextField, VectorField
 
 
 class RedisStackConnector:
-    def __init__(self, logger: Logger, **setting: dict):
+    def __init__(self, logger: logging.Logger, **setting: Dict[str, Any]):
         self.logger = logger
         self.openai_client = OpenAI(
             api_key=setting["openai_api_key"],
@@ -27,7 +27,7 @@ class RedisStackConnector:
         )
         self.embedding_model = setting["EMBEDDING_MODEL"]
 
-    def index_document(self, prefix: str, key: str, doc: dict):
+    def index_document(self, prefix: str, key: str, doc: Dict[str, Any]):
         try:
             key = f"{prefix}:{str(doc[key])}"
 
@@ -64,7 +64,7 @@ class RedisStackConnector:
         )
         return res.data[0].embedding
 
-    def inquiry_data(self, **arguments: dict) -> List[dict]:
+    def inquiry_data(self, **arguments: dict) -> List[Dict[str, Any]]:
         kwargs = {"user_query": arguments["user_query"], "k": 10}
         if arguments.get("index_name"):
             kwargs["index_name"] = arguments["index_name"]
@@ -89,7 +89,7 @@ class RedisStackConnector:
         hybrid_fields="*",
         k: int = 20,
         log_results: bool = False,
-    ) -> List[dict]:
+    ) -> List[Dict[str, Any]]:
         try:
             # Creates embedding vector from user query
             embedded_query = self.get_embedding(user_query)
