@@ -64,7 +64,7 @@ class RedisStackConnector:
         )
         return res.data[0].embedding
 
-    def inquiry_data(self, **arguments: dict) -> List[Dict[str, Any]]:
+    def inquiry_data(self, **arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
         kwargs = {"user_query": arguments["user_query"], "k": 10}
         if arguments.get("index_name"):
             kwargs["index_name"] = arguments["index_name"]
