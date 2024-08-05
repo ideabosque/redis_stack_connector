@@ -76,19 +76,16 @@ class RedisStackConnector:
             kwargs["hybrid_fields"] = arguments["hybrid_fields"]
         if arguments.get("k"):
             kwargs["k"] = arguments["k"]
-        if arguments.get("log_results"):
-            kwargs["log_results"] = arguments["log_results"]
         return self.search_redis(**kwargs)
 
     def search_redis(
         self,
         user_query: str,
-        index_name: str = "embeddings-index",
+        index_name: str,
         vector_field: str = "content_vector",
-        return_fields: list = ["sku", "name", "url_key", "description", "vector_score"],
+        return_fields: list = None,
         hybrid_fields="*",
         k: int = 20,
-        log_results: bool = False,
     ) -> List[Dict[str, Any]]:
         try:
             # Creates embedding vector from user query
@@ -98,26 +95,16 @@ class RedisStackConnector:
             base_query = (
                 f"{hybrid_fields}=>[KNN {k} @{vector_field} $vector AS vector_score]"
             )
-            query = (
-                Query(base_query)
-                .return_fields(*return_fields)
-                .sort_by("vector_score")
-                .paging(0, k)
-                .dialect(2)
-            )
+            query = Query(base_query).sort_by("vector_score").paging(0, k).dialect(2)
+            if return_fields:
+                query.return_fields(*return_fields)
+
             params_dict = {
                 "vector": np.array(embedded_query).astype(dtype=np.float32).tobytes()
             }
 
             # perform vector search
             result = self.redis_client.ft(index_name).search(query, params_dict)
-            if log_results:
-                for i, article in enumerate(result.docs):
-                    score = 1 - float(article.vector_score)
-                    self.logger.info(
-                        f"{i}. {article.sku} {article.name} (Score: {round(score ,3) })"
-                    )
-
             return result.docs
 
         except Exception as e:
