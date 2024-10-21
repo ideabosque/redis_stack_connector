@@ -85,7 +85,7 @@ class RedisStackConnector:
         vector_field: str = "content_vector",
         return_fields: list = None,
         hybrid_fields="*",
-        k: int = 20,
+        k: int = 100,
     ) -> List[Dict[str, Any]]:
         try:
             # Creates embedding vector from user query
