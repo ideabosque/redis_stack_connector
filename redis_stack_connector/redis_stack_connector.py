@@ -86,6 +86,8 @@ class RedisStackConnector:
         return_fields: list = None,
         hybrid_fields="*",
         k: int = 100,
+        offset: int = 0,
+        limit: int = 100,
     ) -> List[Dict[str, Any]]:
         try:
             # Creates embedding vector from user query
@@ -95,7 +97,12 @@ class RedisStackConnector:
             base_query = (
                 f"{hybrid_fields}=>[KNN {k} @{vector_field} $vector AS vector_score]"
             )
-            query = Query(base_query).sort_by("vector_score").paging(0, k).dialect(2)
+            query = (
+                Query(base_query)
+                .sort_by("vector_score")
+                .paging(offset, limit)
+                .dialect(2)
+            )
             if return_fields:
                 query.return_fields(*return_fields)
 
