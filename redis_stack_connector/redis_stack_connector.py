@@ -64,20 +64,6 @@ class RedisStackConnector:
         )
         return res.data[0].embedding
 
-    def inquiry_data(self, **arguments: Dict[str, Any]) -> List[Dict[str, Any]]:
-        kwargs = {"user_query": arguments["user_query"], "k": 10}
-        if arguments.get("index_name"):
-            kwargs["index_name"] = arguments["index_name"]
-        if arguments.get("vector_field"):
-            kwargs["vector_field"] = arguments["vector_field"]
-        if arguments.get("return_fields"):
-            kwargs["return_fields"] = arguments["return_fields"]
-        if arguments.get("hybrid_fields"):
-            kwargs["hybrid_fields"] = arguments["hybrid_fields"]
-        if arguments.get("k"):
-            kwargs["k"] = arguments["k"]
-        return self.search_redis(**kwargs)
-
     def search_redis(
         self,
         user_query: str,
