@@ -98,7 +98,7 @@ class RedisStackConnector:
 
             # perform vector search
             result = self.redis_client.ft(index_name).search(query, params_dict)
-            return result.docs
+            return result.total, result.docs
 
         except Exception as e:
             log = traceback.format_exc()
