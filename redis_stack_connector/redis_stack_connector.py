@@ -70,7 +70,7 @@ class RedisStackConnector:
         index_name: str,
         vector_field: str = "content_vector",
         return_fields: list = None,
-        hybrid_fields="*",
+        hybrid_fields: str = "*",
         k: int = 100,
         offset: int = 0,
         limit: int = 100,
