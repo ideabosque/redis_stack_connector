@@ -11,7 +11,13 @@ from typing import Any, Dict, List
 import numpy as np
 import redis
 from openai import OpenAI
+from redis.commands.search.field import NumericField, TextField, VectorField
+from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from redis.commands.search.query import Query
+
+# Constants
+VECTOR_DIM = 1536  # Dimension for embeddings
+DISTANCE_METRIC = "COSINE"  # Distance metric for vector similarity
 
 
 class RedisStackConnector:
@@ -26,6 +32,40 @@ class RedisStackConnector:
             password=setting["REDIS_PASSWORD"],
         )
         self.embedding_model = setting["EMBEDDING_MODEL"]
+
+    def create_redis_index(self, index_name: str, fields: Dict[str, Any], prefix: str):
+        try:
+            index_fields = []
+            for field_name, field_type in fields.items():
+                if field_type == "TEXT":
+                    index_fields.append(TextField(field_name))
+                elif field_type == "VECTOR":
+                    index_fields.append(
+                        VectorField(
+                            field_name,
+                            "HNSW",
+                            {
+                                "TYPE": "FLOAT32",
+                                "DIM": VECTOR_DIM,
+                                "DISTANCE_METRIC": DISTANCE_METRIC,
+                            },
+                        )
+                    )
+                elif field_type == "NUMERIC":
+                    index_fields.append(NumericField(field_name))
+                else:
+                    raise Exception(f"Invalid field type: {field_type}")
+
+            self.redis_client.ft(index_name).create_index(
+                fields=index_fields,
+                definition=IndexDefinition(prefix=[prefix], index_type=IndexType.HASH),
+            )
+            return
+
+        except Exception as e:
+            log = traceback.format_exc()
+            self.logger.error(log)
+            raise e
 
     def index_document(self, prefix: str, key: str, doc: Dict[str, Any]):
         try:
