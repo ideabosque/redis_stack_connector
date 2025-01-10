@@ -110,15 +110,21 @@ class RedisStackConnector:
         k: int = 100,
         offset: int = 0,
         limit: int = 100,
+        use_ann: bool = False,  # Enable ANN (HNSW)
+        ef_runtime: int = 10,  # Efficiency factor for HNSW (only used if ANN is enabled)
     ) -> List[Dict[str, Any]]:
         try:
             # Creates embedding vector from user query
             embedded_query = self.get_embedding(user_query)
 
             # Prepare the Query
-            base_query = (
-                f"{hybrid_fields}=>[KNN {k} @{vector_field} $vector AS vector_score]"
-            )
+            if use_ann:
+                # For HNSW (ANN), include `EF_RUNTIME`
+                base_query = f"{hybrid_fields}=>[KNN {k} @{vector_field} $vector AS vector_score EF_RUNTIME {ef_runtime}]"
+            else:
+                # Default KNN query
+                base_query = f"{hybrid_fields}=>[KNN {k} @{vector_field} $vector AS vector_score]"
+
             query = (
                 Query(base_query)
                 .sort_by("vector_score")
