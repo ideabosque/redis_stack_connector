@@ -5,10 +5,10 @@ from __future__ import print_function
 __author__ = "bibow"
 
 import logging
+import struct
 import traceback
 from typing import Any, Dict, List
 
-import numpy as np
 import redis
 from openai import OpenAI
 from redis.commands.search.field import NumericField, TextField, VectorField
@@ -71,21 +71,17 @@ class RedisStackConnector:
         try:
             key = f"{prefix}:{str(doc[key])}"
 
-            # create byte vectors for title
+            # Convert list of floats to byte vectors for title
             if doc.get("title_vector"):
-                title_embedding = np.array(
-                    doc["title_vector"], dtype=np.float32
-                ).tobytes()
-
-                # replace list of floats with byte vectors
+                title_embedding = struct.pack(
+                    f"{len(doc['title_vector'])}f", *doc["title_vector"]
+                )
                 doc["title_vector"] = title_embedding
 
-            # create byte vectors for content
-            content_embedding = np.array(
-                doc["content_vector"], dtype=np.float32
-            ).tobytes()
-
-            # replace list of floats with byte vectors
+            # Convert list of floats to byte vectors for content
+            content_embedding = struct.pack(
+                f"{len(doc['content_vector'])}f", *doc["content_vector"]
+            )
             doc["content_vector"] = content_embedding
 
             self.redis_client.hset(key, mapping=doc)
@@ -132,11 +128,12 @@ class RedisStackConnector:
             if return_fields:
                 query.return_fields(*return_fields)
 
+            # Convert embedding to bytes
             params_dict = {
-                "vector": np.array(embedded_query).astype(dtype=np.float32).tobytes()
+                "vector": struct.pack(f"{len(embedded_query)}f", *embedded_query)
             }
 
-            # perform vector search
+            # Perform vector search
             result = self.redis_client.ft(index_name).search(query, params_dict)
             return result.total, result.docs
 
