@@ -14,6 +14,7 @@ from openai import OpenAI
 from redis.commands.search.field import NumericField, TextField, VectorField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from redis.commands.search.query import Query
+from redis.exceptions import ResponseError
 
 # Constants
 VECTOR_DIM = 1536  # Dimension for embeddings
@@ -33,17 +34,30 @@ class RedisStackConnector:
         )
         self.embedding_model = setting["EMBEDDING_MODEL"]
 
+    def index_exists(self, index_name: str):
+        """
+        Determines whether the specified Rediscript index exists
+        :Param index_name: index name
+        :Return: True if the index exists, otherwise False
+        """
+        try:
+            if self.redis_client.ft(index_name).info():
+                return True
+            return False
+        except ResponseError as e:
+            if "unknown index name" in str(e).lower():
+                return False
+            raise
+
     def create_redis_index(self, index_name: str, fields: Dict[str, Any], prefix: str):
         try:
             # Check if the index already exists
-            existing_indices = self.redis_client.ft(
-                index_name
-            ).info()  # Retrieves index info
-            if existing_indices:
+            if self.index_exists(index_name=index_name):
                 print(f"Index '{index_name}' already exists.")
                 return
 
             index_fields = []
+            
             for field_name, field_type in fields.items():
                 if field_type == "TEXT":
                     index_fields.append(TextField(field_name))
@@ -71,6 +85,7 @@ class RedisStackConnector:
             return
 
         except Exception as e:
+            print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
             log = traceback.format_exc()
             self.logger.error(log)
             raise e
