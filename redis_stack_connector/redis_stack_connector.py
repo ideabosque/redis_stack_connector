@@ -7,7 +7,7 @@ __author__ = "bibow"
 import logging
 import struct
 import traceback
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import redis
 from openai import OpenAI
@@ -35,6 +35,14 @@ class RedisStackConnector:
 
     def create_redis_index(self, index_name: str, fields: Dict[str, Any], prefix: str):
         try:
+            # Check if the index already exists
+            existing_indices = self.redis_client.ft(
+                index_name
+            ).info()  # Retrieves index info
+            if existing_indices:
+                print(f"Index '{index_name}' already exists.")
+                return
+
             index_fields = []
             for field_name, field_type in fields.items():
                 if field_type == "TEXT":
@@ -93,7 +101,7 @@ class RedisStackConnector:
             self.logger.error(log)
             raise e
 
-    def get_embedding(self, text):
+    def get_embedding(self, text: str) -> List[Dict[str, Any]]:
         text = text.replace("\n", " ")
         res = self.openai_client.embeddings.create(
             input=[text], model=self.embedding_model
@@ -112,7 +120,7 @@ class RedisStackConnector:
         limit: int = 100,
         use_ann: bool = False,  # Enable ANN (HNSW)
         ef_runtime: int = 10,  # Efficiency factor for HNSW (only used if ANN is enabled)
-    ) -> List[Dict[str, Any]]:
+    ) -> Tuple[int, List[Dict[str, Any]]]:
         try:
             # Creates embedding vector from user query
             embedded_query = self.get_embedding(user_query)
