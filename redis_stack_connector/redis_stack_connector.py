@@ -10,7 +10,6 @@ import traceback
 from typing import Any, Dict, List, Tuple
 
 import redis
-from openai import OpenAI
 from redis.commands.search.field import NumericField, TextField, VectorField
 from redis.commands.search.indexDefinition import IndexDefinition, IndexType
 from redis.commands.search.query import Query
@@ -24,15 +23,12 @@ DISTANCE_METRIC = "COSINE"  # Distance metric for vector similarity
 class RedisStackConnector:
     def __init__(self, logger: logging.Logger, **setting: Dict[str, Any]):
         self.logger = logger
-        self.openai_client = OpenAI(
-            api_key=setting["openai_api_key"],
-        )
         self.redis_client = redis.Redis(
             host=setting["REDIS_HOST"],
             port=setting["REDIS_PORT"],
             password=setting["REDIS_PASSWORD"],
         )
-        self.embedding_model = setting["EMBEDDING_MODEL"]
+        self.setting = setting
 
     def index_exists(self, index_name: str):
         """
@@ -57,7 +53,7 @@ class RedisStackConnector:
                 return
 
             index_fields = []
-            
+
             for field_name, field_type in fields.items():
                 if field_type == "TEXT":
                     index_fields.append(TextField(field_name))
@@ -85,7 +81,9 @@ class RedisStackConnector:
             return
 
         except Exception as e:
-            print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@")
+            print(
+                "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@"
+            )
             log = traceback.format_exc()
             self.logger.error(log)
             raise e
@@ -116,18 +114,11 @@ class RedisStackConnector:
             self.logger.error(log)
             raise e
 
-    def get_embedding(self, text: str) -> List[Dict[str, Any]]:
-        text = text.replace("\n", " ")
-        res = self.openai_client.embeddings.create(
-            input=[text], model=self.embedding_model
-        )
-        return res.data[0].embedding
-
     def search_redis(
         self,
-        user_query: str,
+        query_vector: List[Dict[str, Any]],
         index_name: str,
-        vector_field: str = "content_vector",
+        vector_field: str = None,
         return_fields: list = None,
         hybrid_fields: str = "*",
         k: int = 100,
@@ -137,8 +128,18 @@ class RedisStackConnector:
         ef_runtime: int = 10,  # Efficiency factor for HNSW (only used if ANN is enabled)
     ) -> Tuple[int, List[Dict[str, Any]]]:
         try:
-            # Creates embedding vector from user query
-            embedded_query = self.get_embedding(user_query)
+            if vector_field is None:
+                vector_field = (
+                    self.setting.get("redis_index_config", {})
+                    .get(index_name, {})
+                    .get("vector_field")
+                )
+            if return_fields is None:
+                return_fields = (
+                    self.setting.get("redis_index_config", {})
+                    .get(index_name, {})
+                    .get("return_fields")
+                )
 
             # Prepare the Query
             if use_ann:
@@ -159,7 +160,7 @@ class RedisStackConnector:
 
             # Convert embedding to bytes
             params_dict = {
-                "vector": struct.pack(f"{len(embedded_query)}f", *embedded_query)
+                "vector": struct.pack(f"{len(query_vector)}f", *query_vector)
             }
 
             # Perform vector search
@@ -169,6 +170,46 @@ class RedisStackConnector:
         except Exception as e:
             log = traceback.format_exc()
             self.logger.error(log)
+            raise e
+
+    def search_vector(
+        self,
+        query_vector: List[Dict[str, Any]],
+        index_name: str,
+        **kwargs: Dict[str, Any],
+    ) -> Tuple[int, List[Dict[str, Any]]]:
+        try:
+            _kwargs = {
+                "vector_field": kwargs.get("vector_field"),
+                "return_fields": kwargs.get("fields_to_return"),
+                **{
+                    mapped_key: kwargs[key]
+                    for key, mapped_key in {
+                        "filter_conditions": "hybrid_fields",
+                        "top_k": "k",
+                        "result_offset": "offset",
+                        "limit": "limit",
+                    }.items()
+                    if key in kwargs
+                },
+                **(
+                    {
+                        "use_ann": self.setting["use_ann"],
+                        "ef_runtime": self.setting.get("ef_runtime", 10),
+                    }
+                    if "use_ann" in self.setting
+                    else {}
+                ),
+            }
+
+            total, results = self.search_redis(
+                query_vector,
+                index_name,
+                **_kwargs,
+            )
+            return total, results
+        except Exception as e:
+            self.logger.error(f"Error during vector search: {traceback.format_exc()}")
             raise e
 
     def create_hybrid_field(
