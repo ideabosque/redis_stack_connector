@@ -27,6 +27,7 @@ class RedisStackConnector:
             host=setting["REDIS_HOST"],
             port=setting["REDIS_PORT"],
             password=setting["REDIS_PASSWORD"],
+            db=setting.get("REDIS_DB", 0),
         )
         self.setting = setting
 
