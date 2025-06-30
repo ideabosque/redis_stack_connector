@@ -16,7 +16,7 @@ from redis.commands.search.query import Query
 from redis.exceptions import ResponseError
 
 # Constants
-VECTOR_DIM = 1536  # Dimension for embeddings
+VECTOR_DIM = 768  # Dimension for embeddings
 DISTANCE_METRIC = "COSINE"  # Distance metric for vector similarity
 
 
