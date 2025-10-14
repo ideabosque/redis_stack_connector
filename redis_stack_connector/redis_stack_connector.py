@@ -10,7 +10,7 @@ import traceback
 from typing import Any, Dict, List, Tuple
 
 import redis
-from redis.commands.search.field import NumericField, TextField, VectorField
+from redis.commands.search.field import NumericField, TextField, VectorField, TagField
 from redis.commands.search.index_definition import IndexDefinition, IndexType
 from redis.commands.search.query import Query
 from redis.exceptions import ResponseError
@@ -28,6 +28,8 @@ class RedisStackConnector:
             port=setting["REDIS_PORT"],
             password=setting["REDIS_PASSWORD"],
             db=setting.get("REDIS_DB", 0),
+            # decode_responses=True,
+            # encoding='latin-1'
         )
         self.setting = setting
 
@@ -46,7 +48,7 @@ class RedisStackConnector:
                 return False
             raise
 
-    def create_redis_index(self, index_name: str, fields: Dict[str, Any], prefix: str):
+    def create_redis_index(self, index_name: str, fields: Dict[str, Any], prefix: str, vector_dim: int = VECTOR_DIM):
         try:
             # Check if the index already exists
             if self.index_exists(index_name=index_name):
@@ -65,13 +67,15 @@ class RedisStackConnector:
                             "HNSW",
                             {
                                 "TYPE": "FLOAT32",
-                                "DIM": VECTOR_DIM,
+                                "DIM": vector_dim,
                                 "DISTANCE_METRIC": DISTANCE_METRIC,
                             },
                         )
                     )
                 elif field_type == "NUMERIC":
                     index_fields.append(NumericField(field_name))
+                elif field_type.startswith("TAG"):
+                    index_fields.append(TagField(field_name))
                 else:
                     raise Exception(f"Invalid field type: {field_type}")
 
